@@ -48,14 +48,23 @@ class Animator
   int frame;
   int oldFrame;
   int mode;
+  int ledCount;
+  int tempo;
   float framerate;
   float segments[6];
 
+  // chase
+  float pixels[100];
+  int c1r, c1g, c1b;
+  int c2r, c2g, c2b;
+
 public:
-  Animator(int currentTime)
+  Animator(int currentTime, int _ledCount)
   {
+    ledCount = _ledCount;
     startingTime = currentTime;
     mode = 0;
+    tempo = 120;
     oldFrame = 0;
     framerate = 100;
   }
@@ -63,20 +72,54 @@ public:
   void update(int currentTime)
   {
     runningTime = abs(currentTime - startingTime);
-
     frame = floor(runningTime / (1000.0 / framerate));
     bool UPDATE = frame != oldFrame;
+    // Serial.printf("frame: %d\n", frame);
     switch (mode)
     {
+      // two color chase
+
+    case 5:
+      // violet
+      if (UPDATE)
+      {
+        c1r = 255;
+        c1g = 0;
+        c1b = 100;
+        // yellow
+        c2r = 255;
+        c2g = 100;
+        c2b = 0;
+        //
+
+        int middle = int(floor(ledCount / 2.0));
+        int cr = int(floor(float(frame) / framerate * tempo / 12)) % middle;
+        //
+        for (int i = 0; i < middle; i++)
+        {
+          if (i > cr)
+          {
+            strip.setPixelColor(middle - i, strip.Color(c1g, c1r, c1b));
+            strip.setPixelColor(middle + i, strip.Color(c1g, c1r, c1b));
+          }
+          else
+          {
+            strip.setPixelColor(middle - i, strip.Color(c2g, c2r, c2b));
+            strip.setPixelColor(middle + i, strip.Color(c2g, c2r, c2b));
+          }
+        }
+        strip.show();
+      }
+      break;
     // KNIGHT RIDER
     case 6:
       if (UPDATE)
 
       {
 
-        int cr = int(floor(frame / 10)) % 10;
+        int cr = int(floor(float(frame) / framerate * tempo / 12)) % 10;
         int cursor = cr > 5 ? 10 - cr : cr;
-        Serial.printf("kr %d, %d:%d\n", frame, cr, cursor);
+        //Serial.printf("kr %d, %d:%d\n", frame, cr, cursor);
         for (int i = 0; i < 6; i++)
         {
           if (i == cursor)
@@ -85,7 +128,7 @@ public:
           }
           else
           {
-            segments[i] = segments[i] * (1.0 - 2.5 / framerate);
+            segments[i] = segments[i] * (1.0 - (float(tempo) / 60.0) / framerate);
           }
         }
         for (int i = 0; i < 6; i++)
@@ -105,50 +148,100 @@ public:
 
     // POLICE
     case 7:
-      //if (UPDATE)
-      //{
-
-      bool period1 = frame % int(framerate / 2) < 100;
-      bool period2 = frame % int(framerate / 3) > 170;
-      bool period3 = frame % int(framerate / 5) < 250;
-      for (int i = 0; i < PLedCount; i++)
+      if (UPDATE)
       {
-        if (i < PMiddle)
+
+        bool period1 = (frame % int(framerate / 3)) < framerate / 6;
+        bool period2 = (frame % int(framerate / 4)) > framerate / 8;
+        bool period3 = (frame % int(framerate / 6)) < framerate / 12;
+        bool strobe = (frame % 33) < 4;
+
+        for (int i = 0; i < PLedCount; i++)
         {
-          strip.Color(i, 0, period3 ? 255 : 0, period3 ? 0 : 255);
+          if (!strobe)
+          {
+
+            if (i < PMiddle)
+            {
+              strip.setPixelColor(
+                  i,
+                  strip.Color(0, int(period2 & period3 ? 255 : 0), int(period2 ? 0 : 255)));
+            }
+            else
+            {
+              if (period1)
+              {
+                strip.setPixelColor(
+                    i,
+                    strip.Color(0, int(period2 & period3 ? 0 : 255), int(period2 ? 255 : 0)));
+              }
+              else
+              {
+                strip.setPixelColor(
+                    i,
+                    strip.Color(0, int(period2 ? 255 : 0), int(period2 ? 0 : 255)));
+              }
+            }
+          }
+          else
+          {
+            strip.setPixelColor(
+                i,
+                strip.Color(255, 255, 255));
+          }
         }
-        else
-        {
-          strip.Color(i, 0, period3 ? 0 : 255, period3 ? 255 : 0);
-        }
+        strip.show();
       }
-      //}
-      strip.show();
       break;
     }
     oldFrame = frame;
+  }
+
+public:
+  void changeMode(int newMode)
+  {
+    switch (newMode)
+    {
+    case 6:
+      KnightRider();
+      break;
+    case 7:
+      Police();
+      break;
+    }
+    mode = newMode;
+    strip.fill((0, 0, 0));
+    strip.show();
+  }
+
+public:
+  void changeTempo(int newTempo)
+  {
+    tempo = newTempo;
   }
   // ilość diod na jeden segment
   int KRLedCount;
   int KROffset;
   int KRMiddle;
   int KRSegmentLedCount;
-  void KnightRider(int ledCount, int offset)
+  void KnightRider()
   {
     mode = 6;
     KRLedCount = floor(float(ledCount) / 6.0) * 6;
-    KROffset = offset;
+    KROffset = int((ledCount - KRLedCount) / 2.0);
     KRSegmentLedCount = KRLedCount / 6;
     KRMiddle = (floor(float(KRSegmentLedCount) / 2.0));
   }
 
   int PLedCount;
   int PMiddle;
-  void Police(int ledCount)
+  void Police()
   {
     mode = 7;
     PLedCount = ledCount;
     PMiddle = int(round(ledCount / 2));
+
+    Serial.printf("Changing to Police mode: %d, PLedCount: %d, PMiddle: %d", mode, PLedCount, PMiddle);
   }
 };
 
@@ -156,7 +249,7 @@ public:
 //   / ____ \| | | | | | | | | | (_| | || (_) | |    | |____| | (_| \__ \__ \
 //==================================================================================
 
-Animator Animate(0);
+Animator Animate(0, LED_COUNT);
 
 void setup()
 {
@@ -193,12 +286,12 @@ void setup()
     WiFiMulti.addAP(eeAP, eePASS);
   }
 
-  for (uint8_t t = 4; t > 0; t--)
-  {
-    Serial.printf("[SETUP] WAIT %d...\n", t);
-    Serial.flush();
-    delay(1000);
-  }
+  // for (uint8_t t = 4; t > 0; t--)
+  // {
+  //   Serial.printf("[SETUP] WAIT %d...\n", t);
+  //   Serial.flush();
+  //   delay(1000);
+  // }
   while (not WiFiMulti.run() == WL_CONNECTED)
   {
     continue;
@@ -207,13 +300,13 @@ void setup()
 
   strip.begin();            // INITIALIZE NeoPixel strip object (REQUIRED)
   strip.show();             // Turn OFF all pixels ASAP
-  strip.setBrightness(100); // Set BRIGHTNESS to about 1/5 (max = 255)
+  strip.setBrightness(255); // Set BRIGHTNESS to about 1/5 (max = 255)
 
   //  initialize Animator class
-  Animate = Animator(millis());
+  Animate = Animator(millis(), LED_COUNT);
   //  do the right thing
-  // Animate.KnightRider(18, 1);
-  Animate.Police(20);
+  Animate.KnightRider();
+  //Animate.Police();
 }
 
 bool LED;
@@ -250,7 +343,7 @@ void loop()
     HTTPClient http;
 
     //
-    if (currentTime - oldmil > 2000)
+    if (currentTime - oldmil > 10000 & false)
     {
       oldmil = currentTime;
       //Serial.print("[HTTP] begin...\n");
@@ -311,7 +404,7 @@ void loop()
     {
 
       String app = inputString.substring(5, inputString.indexOf(';', 6) + 1);
-      String pp = inputString.substring(inputString.indexOf(';', 6) + 1, inputString.indexOf(';', inputString.indexOf(';', 6) + 1));
+      String pp = inputString.substring(inputString.indexOf(';', 6) + 1, inputString.indexOf(';', inputString.indexOf(';', 6) + 1) + 1);
       char ap[app.length()];
       app.toCharArray(ap, app.length());
       char p[pp.length()];
@@ -328,8 +421,7 @@ void loop()
       EEPROM.commit();
       WiFi.printDiag(Serial);
     }
-
-    if (inputString.substring(0, 5).equals("clear"))
+    else if (inputString.substring(0, 5).equals("clear"))
     {
       for (int i = 0; i < EEPROM.length(); i++)
       {
@@ -340,6 +432,24 @@ void loop()
       WiFi.disconnect();
       ESP.reset();
       delay(1000);
+    }
+    else if (inputString.substring(0, 5).equals("mode;"))
+    {
+      Serial.println("Changing mode...");
+      int newMode = inputString.substring(5, 6).toInt();
+      Animate.changeMode(newMode);
+    }
+    else if (inputString.substring(0, 6).equals("tempo;"))
+    {
+      int newTempo = inputString.substring(6, inputString.indexOf(';', 7) + 1).toInt();
+      Serial.printf("Tempo changed to %d\n", newTempo);
+      Animate.changeTempo(newTempo);
+    }
+    else if (inputString.substring(0, 3).equals("br;"))
+    {
+      int arg1 = inputString.substring(3, inputString.indexOf(';', 4) + 1).toInt();
+      Serial.printf("Brightness changed to %d\n", arg1);
+      strip.setBrightness(arg1);
     }
 
     inputString = "";
