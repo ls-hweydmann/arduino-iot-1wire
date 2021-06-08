@@ -43,206 +43,238 @@ Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 class Animator
 {
-  int startingTime;
-  int runningTime;
-  int frame;
-  int oldFrame;
-  int mode;
-  int ledCount;
-  int tempo;
-  float framerate;
-  float segments[6];
+    int startingTime;
+    int runningTime;
+    int frame;
+    int oldFrame;
+    int mode;
+    int ledCount;
+    int tempo;
+    float framerate;
+    float segments[6];
 
-  // chase
-  float pixels[120];
-  int c1r, c1g, c1b;
-  int c2r, c2g, c2b;
+    // chase
+    float pixels[120];
+    int split = 50;
+    int c1r = 0, c1g = 100, c1b = 100;
+    int c2r, c2g, c2b;
 
-public:
-  Animator(int currentTime, int _ledCount)
-  {
-    ledCount = _ledCount;
-    startingTime = currentTime;
-    mode = 0;
-    tempo = 120;
-    oldFrame = 0;
-    framerate = 100;
-  }
-
-  void update(int currentTime)
-  {
-    runningTime = abs(currentTime - startingTime);
-    frame = floor(runningTime / (1000.0 / framerate));
-    bool UPDATE = frame != oldFrame;
-    // Serial.printf("frame: %d\n", frame);
-    switch (mode)
+  public:
+    Animator(int currentTime, int _ledCount)
     {
-      // two color chase
+      ledCount = _ledCount;
+      startingTime = currentTime;
+      mode = 0;
+      tempo = 120;
+      oldFrame = 0;
+      framerate = 100;
+    }
 
-    case 5:
-      // violet
-      if (UPDATE)
+    void update(int currentTime)
+    {
+      runningTime = abs(currentTime - startingTime);
+      frame = floor(runningTime / (1000.0 / framerate));
+      bool UPDATE = frame != oldFrame;
+      // Serial.printf("frame: %d\n", frame);
+      switch (mode)
       {
-        c1r = 255;
-        c1g = 0;
-        c1b = 100;
-        // yellow
-        c2r = 255;
-        c2g = 100;
-        c2b = 0;
-        //
-
-        int middle = int(floor(ledCount / 2.0));
-        int cr = int(floor(float(frame) / framerate * tempo / 12)) % middle;
-        //
-        for (int i = 0; i < middle; i++)
-        {
-          if (i > cr)
+        // one color still
+        case 1:
+          for (int i = 0; i < ledCount; i++)
           {
-            strip.setPixelColor(middle - i, strip.Color(c1g, c1r, c1b));
-            strip.setPixelColor(middle + i, strip.Color(c1g, c1r, c1b));
+            strip.setPixelColor(i, strip.Color(c1g, c1r, c1b));
           }
-          else
+          strip.show();
+          break;
+        // two color split
+        case 2:
+          for (int i = 0; i < ledCount; i++)
           {
-            strip.setPixelColor(middle - i, strip.Color(c2g, c2r, c2b));
-            strip.setPixelColor(middle + i, strip.Color(c2g, c2r, c2b));
-          }
-        }
-        strip.show();
-      }
-      break;
-    // KNIGHT RIDER
-    case 6:
-      if (UPDATE)
-
-      {
-
-        int cr = int(floor(float(frame) / framerate * tempo / 12)) % 10;
-        int cursor = cr > 5 ? 10 - cr : cr;
-        //Serial.printf("kr %d, %d:%d\n", frame, cr, cursor);
-        for (int i = 0; i < 6; i++)
-        {
-          if (i == cursor)
-          {
-            segments[i] = 1.0;
-          }
-          else
-          {
-            segments[i] = segments[i] * (1.0 - (float(tempo) / 60.0) / framerate);
-          }
-        }
-        for (int i = 0; i < 6; i++)
-        {
-          for (int j = 0; j < KRSegmentLedCount; j++)
-          {
-            strip.setPixelColor(
-                KROffset + i * KRSegmentLedCount + j,
-                strip.Color(0,
-                            round((j == (KRMiddle) ? (255.0) : (100.0)) * segments[int(floor(i))]), 0));
-          }
-        }
-      }
-
-      strip.show();
-      break;
-
-    // POLICE
-    case 7:
-      if (UPDATE)
-      {
-
-        bool period1 = (frame % int(framerate / 3)) < framerate / 6;
-        bool period2 = (frame % int(framerate / 4)) > framerate / 8;
-        bool period3 = (frame % int(framerate / 6)) < framerate / 12;
-        bool strobe = (frame % 33) < 4;
-
-        for (int i = 0; i < PLedCount; i++)
-        {
-          if (!strobe)
-          {
-
-            if (i < PMiddle)
-            {
-              strip.setPixelColor(
-                  i,
-                  strip.Color(0, int(period2 & period3 ? 255 : 0), int(period2 ? 0 : 255)));
+            if (i < split) {
+              strip.setPixelColor(i, strip.Color(c1g, c1r, c1b));
+            } else {
+              strip.setPixelColor(i, strip.Color(c2g, c2r, c2b));
             }
-            else
+          }
+
+          strip.show();
+          break;
+        // two color chase
+        case 5:
+          // violet
+          if (UPDATE)
+          {
+            int middle = int(floor(ledCount / 2.0));
+            int cr = int(floor(float(frame) / framerate * tempo / 12)) % middle;
+
+            //
+            for (int i = 0; i < middle; i++)
             {
-              if (period1)
+              if (i > cr)
+              {
+                strip.setPixelColor(middle - i, strip.Color(c1g, c1r, c1b));
+                strip.setPixelColor(middle + i, strip.Color(c1g, c1r, c1b));
+              }
+              else
+              {
+                strip.setPixelColor(middle - i, strip.Color(c2g, c2r, c2b));
+                strip.setPixelColor(middle + i, strip.Color(c2g, c2r, c2b));
+              }
+            }
+            strip.show();
+          }
+          break;
+        // KNIGHT RIDER
+        case 6:
+          if (UPDATE)
+
+          {
+
+            int cr = int(floor(float(frame) / framerate * tempo / 12)) % 10;
+            int cursor = cr > 5 ? 10 - cr : cr;
+            //Serial.printf("kr %d, %d:%d\n", frame, cr, cursor);
+            for (int i = 0; i < 6; i++)
+            {
+              if (i == cursor)
+              {
+                segments[i] = 1.0;
+              }
+              else
+              {
+                segments[i] = segments[i] * (1.0 - (float(tempo) / 60.0) / framerate);
+              }
+            }
+            for (int i = 0; i < 6; i++)
+            {
+              for (int j = 0; j < KRSegmentLedCount; j++)
               {
                 strip.setPixelColor(
+                  KROffset + i * KRSegmentLedCount + j,
+                  strip.Color(round((j == (KRMiddle) ? (float(c1g)) : (float(c1g) / 2.0)) * segments[int(floor(i))]),
+                              round((j == (KRMiddle) ? (float(c1r)) : (float(c1r) / 2.0)) * segments[int(floor(i))]),
+                              round((j == (KRMiddle) ? (float(c1b)) : (float(c1b) / 2.0)) * segments[int(floor(i))]))
+                );
+              }
+            }
+          }
+
+          strip.show();
+          break;
+
+        // POLICE
+        case 7:
+          if (UPDATE)
+          {
+
+            bool period1 = (frame % int(framerate / 3)) < framerate / 6;
+            bool period2 = (frame % int(framerate / 4)) > framerate / 8;
+            bool period3 = (frame % int(framerate / 6)) < framerate / 12;
+            bool strobe = (frame % 33) < 4;
+
+            for (int i = 0; i < PLedCount; i++)
+            {
+              if (!strobe)
+              {
+
+                if (i < PMiddle)
+                {
+                  strip.setPixelColor(
                     i,
-                    strip.Color(0, int(period2 & period3 ? 0 : 255), int(period2 ? 255 : 0)));
+                    strip.Color(0, int(period2 & period3 ? 255 : 0), int(period2 ? 0 : 255)));
+                }
+                else
+                {
+                  if (period1)
+                  {
+                    strip.setPixelColor(
+                      i,
+                      strip.Color(0, int(period2 & period3 ? 0 : 255), int(period2 ? 255 : 0)));
+                  }
+                  else
+                  {
+                    strip.setPixelColor(
+                      i,
+                      strip.Color(0, int(period2 ? 255 : 0), int(period2 ? 0 : 255)));
+                  }
+                }
               }
               else
               {
                 strip.setPixelColor(
-                    i,
-                    strip.Color(0, int(period2 ? 255 : 0), int(period2 ? 0 : 255)));
+                  i,
+                  strip.Color(255, 255, 255));
               }
             }
+            strip.show();
           }
-          else
-          {
-            strip.setPixelColor(
-                i,
-                strip.Color(255, 255, 255));
-          }
-        }
-        strip.show();
+          break;
       }
-      break;
+      oldFrame = frame;
     }
-    oldFrame = frame;
-  }
 
-public:
-  void changeMode(int newMode)
-  {
-    switch (newMode)
+  public:
+    void changeMode(int newMode)
     {
-    case 6:
-      KnightRider();
-      break;
-    case 7:
-      Police();
-      break;
+      switch (newMode)
+      {
+        case 6:
+          KnightRider();
+          break;
+        case 7:
+          Police();
+          break;
+      }
+      mode = newMode;
+      strip.fill((0, 0, 0));
+      strip.show();
     }
-    mode = newMode;
-    strip.fill((0, 0, 0));
-    strip.show();
-  }
 
-public:
-  void changeTempo(int newTempo)
-  {
-    tempo = newTempo;
-  }
-  // ilość diod na jeden segment
-  int KRLedCount;
-  int KROffset;
-  int KRMiddle;
-  int KRSegmentLedCount;
-  void KnightRider()
-  {
-    mode = 6;
-    KRLedCount = floor(float(ledCount) / 6.0) * 6;
-    KROffset = int((ledCount - KRLedCount) / 2.0);
-    KRSegmentLedCount = KRLedCount / 6;
-    KRMiddle = (floor(float(KRSegmentLedCount) / 2.0));
-  }
+  public:
+    void changeColor(int colorN, int r, int g, int b) {
+      switch (colorN) {
+        case 1:
+          c1r = r;
+          c1g = g;
+          c1b = b;
+          break;
+        case 2:
+          c2r = r;
+          c2g = g;
+          c2b = b;
+          break;
+      }
+      Serial.printf("Color %d changed to\n    r: %d\n    g: %d\n    b: %d\n", colorN, r, g, b);
+    }
 
-  int PLedCount;
-  int PMiddle;
-  void Police()
-  {
-    mode = 7;
-    PLedCount = ledCount;
-    PMiddle = int(round(ledCount / 2));
+  public:
+    void changeTempo(int newTempo)
+    {
+      tempo = newTempo;
+    }
+    // ilość diod na jeden segment
+    int KRLedCount;
+    int KROffset;
+    int KRMiddle;
+    int KRSegmentLedCount;
+    void KnightRider()
+    {
+      mode = 6;
+      KRLedCount = floor(float(ledCount) / 6.0) * 6;
+      KROffset = int((ledCount - KRLedCount) / 2.0);
+      KRSegmentLedCount = KRLedCount / 6;
+      KRMiddle = (floor(float(KRSegmentLedCount) / 2.0));
+    }
 
-    Serial.printf("Changing to Police mode: %d, PLedCount: %d, PMiddle: %d", mode, PLedCount, PMiddle);
-  }
+    int PLedCount;
+    int PMiddle;
+    void Police()
+    {
+      mode = 7;
+      PLedCount = ledCount;
+      PMiddle = int(round(ledCount / 2));
+
+      Serial.printf("Changing to Police mode: %d, PLedCount: %d, PMiddle: %d", mode, PLedCount, PMiddle);
+    }
 };
 
 //===============================================================================
@@ -300,12 +332,13 @@ void setup()
 
   strip.begin();            // INITIALIZE NeoPixel strip object (REQUIRED)
   strip.show();             // Turn OFF all pixels ASAP
-  strip.setBrightness(255); // Set BRIGHTNESS 
+  strip.setBrightness(3); // Set BRIGHTNESS
 
   //  initialize Animator class
   Animate = Animator(millis(), LED_COUNT);
   //  do the right thing
   Animate.KnightRider();
+  Animate.changeMode(1);
   //Animate.Police();
 }
 
@@ -316,7 +349,7 @@ int tempoldmil = 0;
 // Sterowanie paskiem led
 // tryb świecenia
 // 1 - statyczny
-// 2 - oddychający
+// 2 - two color split
 // 3 - RGB hue shift
 // 4 - karuzela
 // 6 - KNIGHT RIDER
@@ -379,21 +412,6 @@ void loop()
       {
         Serial.printf("[HTTP} Unable to connect\n");
       }
-
-      //// Fill along the length of the strip in various colors...
-      //  colorWipe(strip.Color(255,   0,   0), 50); // Red
-      //  colorWipe(strip.Color(  0, 255,   0), 50); // Green
-      //  colorWipe(strip.Color(  0,   0, 255), 50); // Blue
-
-      // Do a theater marquee effect in various colors...
-      // theaterChase(strip.Color(127, 127, 127), 50); // White, half brightness
-      // theaterChase(strip.Color(127, 0, 0), 50);     // Red, half brightness
-      // theaterChase(strip.Color(0, 0, 127), 50);     // Blue, half brightness
-
-      // rainbow(10);             // Flowing rainbow cycle along the whole strip
-      // theaterChaseRainbow(50); // Rainbow-enhanced theaterChase variant
-
-      //    }
     }
   }
   //// komunikacja szeregowa
@@ -451,6 +469,22 @@ void loop()
       Serial.printf("Brightness changed to %d\n", arg1);
       strip.setBrightness(arg1);
     }
+    else if (inputString.substring(0, 3).equals("c1;"))
+    {
+      // c1;00r00g00b
+      int r = inputString.substring(3, 6).toInt();
+      int g = inputString.substring(6, 9).toInt();
+      int b = inputString.substring(9, 12).toInt();
+      Animate.changeColor(1, r, g, b);
+    }
+    else if (inputString.substring(0, 3).equals("c2;"))
+    {
+      // c1;00r00g00b
+      int r = inputString.substring(3, 6).toInt();
+      int g = inputString.substring(6, 9).toInt();
+      int b = inputString.substring(9, 12).toInt();
+      Animate.changeColor(2, r, g, b);
+    }
 
     inputString = "";
     stringComplete = false;
@@ -480,7 +514,7 @@ void theaterChase(uint32_t color, int wait)
   for (int a = 0; a < 10; a++)
   { // Repeat 10 times...
     for (int b = 0; b < 3; b++)
-    {                //  'b' counts from 0 to 2...
+    { //  'b' counts from 0 to 2...
       strip.clear(); //   Set all pixels in RAM to 0 (off)
       // 'c' counts up from 'b' to end of strip in steps of 3...
       for (int c = b; c < strip.numPixels(); c += 3)
@@ -527,7 +561,7 @@ void theaterChaseRainbow(int wait)
   for (int a = 0; a < 30; a++)
   { // Repeat 30 times...
     for (int b = 0; b < 3; b++)
-    {                //  'b' counts from 0 to 2...
+    { //  'b' counts from 0 to 2...
       strip.clear(); //   Set all pixels in RAM to 0 (off)
       // 'c' counts up from 'b' to end of strip in increments of 3...
       for (int c = b; c < strip.numPixels(); c += 3)
